@@ -4,6 +4,7 @@ import com.hont.hont_backend.auth.jwt.JwtAuthenticationFilter;
 import com.hont.hont_backend.auth.jwt.JwtProvider;
 import com.hont.hont_backend.auth.oauth2.CustomOAuth2UserService;
 import com.hont.hont_backend.auth.oauth2.OAuth2SuccessHandler;
+import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -27,11 +28,20 @@ public class SecurityConfig {
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
             .csrf(AbstractHttpConfigurer::disable)
+            .formLogin(AbstractHttpConfigurer::disable)
             .sessionManagement(session ->
                 session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/api/auth/**", "/oauth2/**", "/login/**").permitAll()
                 .anyRequest().authenticated()
+            )
+            // 인증 실패 시 /login 리다이렉트 대신 401 JSON 반환
+            .exceptionHandling(ex -> ex
+                .authenticationEntryPoint((request, response, e) -> {
+                    response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                    response.setContentType("application/json;charset=UTF-8");
+                    response.getWriter().write("{\"error\":\"Unauthorized\"}");
+                })
             )
             .oauth2Login(oauth2 -> oauth2
                 .userInfoEndpoint(userInfo -> userInfo.userService(oAuth2UserService))
