@@ -21,11 +21,20 @@ public class FoodSearchService {
     private final PopularFoodRepository popularFoodRepository;
     private final FoodInfoRepository foodInfoRepository;
 
+    // 건강기능식품 타입 (식단 검색에서 제외)
+    private static final String EXCLUDED_FOOD_TYPE = "건강기능식품";
+
     // 제거할 수식어 패턴 (대표 음식명 추출에 사용)
     private static final List<String> MODIFIERS = List.of(
-        "저지방", "무가당", "저당", "무설탕", "유기농", "국산", "냉동",
-        "레토르트", "즉석", "간편", "저염", "저칼로리", "고단백", "무첨가",
-        "혼합", "통밀", "영양강화", "기능성"
+        // 영양 관련
+        "저지방", "무가당", "저당", "무설탕", "저염", "저칼로리", "고단백", "무첨가",
+        // 원산지·인증
+        "유기농", "국산", "무농약", "친환경",
+        // 형태·조리
+        "냉동", "레토르트", "즉석", "간편", "혼합", "통밀", "영양강화", "기능성",
+        // 마케팅 수식어
+        "맛있는", "리얼", "진한", "더", "수제", "프리미엄", "특제", "고급",
+        "신선한", "건강한", "웰빙", "생생", "담백한", "깔끔한"
     );
 
     // 허용 문자 외 특수문자 포함 여부 (한글·영문·숫자·공백·괄호·하이픈·슬래시·점·% 는 허용)
@@ -72,8 +81,9 @@ public class FoodSearchService {
      * food_info 테이블에서 검색 후 필터링·그룹핑 적용
      */
     private List<FoodInfoDto> searchFromFoodInfo(String query) {
-        // 후보를 넉넉히 가져온 뒤 Java에서 필터링
-        List<FoodInfo> raw = foodInfoRepository.findByFoodNameContaining(query, PageRequest.of(0, 300));
+        // 후보를 넉넉히 가져온 뒤 Java에서 필터링 (건강기능식품 DB 레벨에서 제외)
+        List<FoodInfo> raw = foodInfoRepository.findByFoodNameContainingAndFoodTypeNot(
+                query, EXCLUDED_FOOD_TYPE, PageRequest.of(0, 300));
 
         // 1. 이름 길이 초과 제거
         // 2. 특수문자 포함 제거
@@ -82,13 +92,34 @@ public class FoodSearchService {
         Map<String, List<FoodInfo>> grouped = raw.stream()
                 .filter(f -> f.getFoodName().length() <= MAX_NAME_LENGTH)
                 .filter(f -> !SPECIAL_CHAR.matcher(f.getFoodName()).find())
-                .collect(Collectors.groupingBy(f -> normalize(f.getFoodName())));
+                .filter(this::isValidNutrition)
+                .collect(Collectors.groupingBy(f -> normalize(f.getFoodName())))
+                .entrySet().stream()
+                // 정규화 후 이름이 너무 짧으면 제외 (수식어만 있던 경우)
+                .filter(e -> e.getKey().length() >= 2)
+                .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
 
         return grouped.entrySet().stream()
                 .map(e -> toAveragedDto(e.getKey(), e.getValue()))
                 .sorted(Comparator.comparingInt(f -> f.getFoodName().length()))
                 .limit(20)
                 .toList();
+    }
+
+    /**
+     * 물리적으로 불가능한 영양소 수치 필터링
+     * - 칼로리 900kcal/100g 초과: 순수 지방도 ~900kcal 수준이므로 초과 시 데이터 오류
+     * - 개별 매크로 100g/100g 초과: 물리적으로 불가능
+     * - 매크로 합계 105g/100g 초과: 수분·회분 등을 감안해도 불가능
+     */
+    private boolean isValidNutrition(FoodInfo f) {
+        if (f.getCalories() != null && f.getCalories() > 900) return false;
+        if (f.getCarbohydrate() != null && f.getCarbohydrate() > 100) return false;
+        if (f.getFat() != null && f.getFat() > 100) return false;
+        if (f.getProtein() != null && f.getProtein() > 100) return false;
+        if (f.getProtein() != null && f.getFat() != null && f.getCarbohydrate() != null
+                && f.getProtein() + f.getFat() + f.getCarbohydrate() > 105) return false;
+        return true;
     }
 
     /**
