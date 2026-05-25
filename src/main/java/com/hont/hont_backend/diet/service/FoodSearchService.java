@@ -24,6 +24,19 @@ public class FoodSearchService {
     // 건강기능식품 타입 (식단 검색에서 제외)
     private static final String EXCLUDED_FOOD_TYPE = "건강기능식품";
 
+    // 한국어 동의어 맵 (검색어 → 대체 검색어)
+    private static final Map<String, String> SYNONYMS = Map.of(
+        "계란", "달걀",
+        "달걀", "계란",
+        "쇠고기", "소고기",
+        "소고기", "쇠고기",
+        "요구르트", "요거트",
+        "요거트", "요구르트",
+        "귀리", "오트밀",
+        "오트밀", "귀리",
+        "튜나", "참치"
+    );
+
     // 제거할 수식어 패턴 (대표 음식명 추출에 사용)
     private static final List<String> MODIFIERS = List.of(
         // 영양 관련
@@ -49,19 +62,34 @@ public class FoodSearchService {
      * 2단계: 결과가 5개 미만이면 식약처 데이터 (food_info) 추가 검색 (필터링 적용)
      */
     public List<FoodInfoDto> searchFood(String query) {
-        // 1단계: 인기 음식 DB 검색
-        List<FoodInfoDto> popularResults = popularFoodRepository
-                .findByFoodNameContaining(query)
-                .stream()
-                .map(FoodInfoDto::new)
-                .toList();
+        String synQuery = synonymQuery(query);
+
+        // 1단계: 인기 음식 DB 검색 (원본 + 동의어 쿼리 합산)
+        List<FoodInfoDto> popularResults = new ArrayList<>(
+                popularFoodRepository.findByFoodNameContaining(query)
+                        .stream().map(FoodInfoDto::new).toList());
+        if (synQuery != null) {
+            Set<String> found = popularResults.stream()
+                    .map(FoodInfoDto::getFoodName).collect(Collectors.toSet());
+            popularFoodRepository.findByFoodNameContaining(synQuery)
+                    .stream().map(FoodInfoDto::new)
+                    .filter(f -> !found.contains(f.getFoodName()))
+                    .forEach(popularResults::add);
+        }
 
         if (popularResults.size() >= 5) {
             return popularResults;
         }
 
-        // 2단계: food_info에서 추가 검색
-        List<FoodInfoDto> fallbackResults = searchFromFoodInfo(query);
+        // 2단계: food_info에서 추가 검색 (원본 + 동의어 쿼리 합산)
+        List<FoodInfoDto> fallbackResults = new ArrayList<>(searchFromFoodInfo(query));
+        if (synQuery != null) {
+            Set<String> found = fallbackResults.stream()
+                    .map(FoodInfoDto::getFoodName).collect(Collectors.toSet());
+            searchFromFoodInfo(synQuery).stream()
+                    .filter(f -> !found.contains(f.getFoodName()))
+                    .forEach(fallbackResults::add);
+        }
 
         // 합치기 (인기 음식 먼저, 중복 음식명 제외)
         Set<String> popularNames = popularResults.stream()
@@ -75,6 +103,16 @@ public class FoodSearchService {
                 .forEach(combined::add);
 
         return combined;
+    }
+
+    // 동의어 치환 쿼리 반환 (없으면 null)
+    private String synonymQuery(String query) {
+        for (Map.Entry<String, String> entry : SYNONYMS.entrySet()) {
+            if (query.contains(entry.getKey())) {
+                return query.replace(entry.getKey(), entry.getValue());
+            }
+        }
+        return null;
     }
 
     /**
