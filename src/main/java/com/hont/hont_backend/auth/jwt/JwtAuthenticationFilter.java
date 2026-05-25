@@ -26,10 +26,10 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                                     FilterChain filterChain) throws ServletException, IOException {
         String token = resolveToken(request);
 
-        log.debug("[JWT] {} {} | token present: {} | auth header: {}",
+        log.warn("[JWT] {} {} | token present: {} | valid: {}",
                 request.getMethod(), request.getRequestURI(),
                 StringUtils.hasText(token),
-                request.getHeader("Authorization"));
+                StringUtils.hasText(token) && jwtProvider.validate(token));
 
         if (StringUtils.hasText(token) && jwtProvider.validate(token)) {
             Long userId = jwtProvider.getUserId(token);
@@ -37,10 +37,9 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             UsernamePasswordAuthenticationToken authentication =
                     new UsernamePasswordAuthenticationToken(userId, null, List.of());
             SecurityContextHolder.getContext().setAuthentication(authentication);
-            log.debug("[JWT] 인증 성공 userId={}", userId);
+            log.warn("[JWT] 인증 성공 userId={}", userId);
         } else {
-            log.debug("[JWT] 인증 실패 - token valid: {}",
-                    StringUtils.hasText(token) && jwtProvider.validate(token));
+            log.warn("[JWT] 인증 실패 - token present: {}", StringUtils.hasText(token));
         }
 
         filterChain.doFilter(request, response);
