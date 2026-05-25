@@ -30,4 +30,12 @@ public class PopularFood {
     private Double carbohydrate;
     private Double protein;
     private Double fat;
+
+    // 단위 입력 지원 (예: "개", "장", "컵") — null이면 g 단위 입력
+    @Column(name = "unit_name", length = 10)
+    private String unitName;
+
+    // 단위당 무게(g) — unitName이 있을 때만 사용
+    @Column(name = "unit_weight")
+    private Double unitWeight;
 }

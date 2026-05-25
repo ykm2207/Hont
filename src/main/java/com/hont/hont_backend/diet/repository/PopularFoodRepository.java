@@ -8,4 +8,6 @@ import java.util.List;
 public interface PopularFoodRepository extends JpaRepository<PopularFood, Long> {
 
     List<PopularFood> findByFoodNameContaining(String foodName);
+
+    java.util.Optional<PopularFood> findByFoodName(String foodName);
 }

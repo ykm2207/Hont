@@ -25,6 +25,10 @@ public class FoodInfoDto {
     private final String manufacturer;
     private final String foodWeight;
 
+    // 단위 입력 지원 (null이면 g 입력)
+    private final String unitName;
+    private final Double unitWeight;
+
     // food_info 테이블 기반 생성자
     public FoodInfoDto(FoodInfo food) {
         this.foodCode = food.getFoodCode();
@@ -44,6 +48,8 @@ public class FoodInfoDto {
         this.transFat = food.getTransFat();
         this.manufacturer = food.getManufacturer();
         this.foodWeight = food.getFoodWeight();
+        this.unitName = null;
+        this.unitWeight = null;
     }
 
     // popular_food 테이블 기반 생성자
@@ -65,6 +71,8 @@ public class FoodInfoDto {
         this.transFat = null;
         this.manufacturer = null;
         this.foodWeight = null;
+        this.unitName = food.getUnitName();
+        this.unitWeight = food.getUnitWeight();
     }
 
     // food_info 검색 결과를 그룹핑·평균 후 DTO로 만들 때 사용하는 생성자
@@ -87,5 +95,7 @@ public class FoodInfoDto {
         this.transFat = null;
         this.manufacturer = null;
         this.foodWeight = null;
+        this.unitName = null;
+        this.unitWeight = null;
     }
 }
