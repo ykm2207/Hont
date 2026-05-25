@@ -5,6 +5,7 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.util.StringUtils;
@@ -13,6 +14,7 @@ import org.springframework.web.filter.OncePerRequestFilter;
 import java.io.IOException;
 import java.util.List;
 
+@Slf4j
 @RequiredArgsConstructor
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
@@ -24,12 +26,21 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                                     FilterChain filterChain) throws ServletException, IOException {
         String token = resolveToken(request);
 
+        log.debug("[JWT] {} {} | token present: {} | auth header: {}",
+                request.getMethod(), request.getRequestURI(),
+                StringUtils.hasText(token),
+                request.getHeader("Authorization"));
+
         if (StringUtils.hasText(token) && jwtProvider.validate(token)) {
             Long userId = jwtProvider.getUserId(token);
             // userId를 principal로 저장
             UsernamePasswordAuthenticationToken authentication =
                     new UsernamePasswordAuthenticationToken(userId, null, List.of());
             SecurityContextHolder.getContext().setAuthentication(authentication);
+            log.debug("[JWT] 인증 성공 userId={}", userId);
+        } else {
+            log.debug("[JWT] 인증 실패 - token valid: {}",
+                    StringUtils.hasText(token) && jwtProvider.validate(token));
         }
 
         filterChain.doFilter(request, response);
