@@ -1,6 +1,7 @@
 package com.hont.hont_backend.diet.controller;
 
 import com.hont.hont_backend.common.response.ApiResponse;
+import com.hont.hont_backend.diet.dto.DietLogItemDto;
 import com.hont.hont_backend.diet.dto.DietLogRequest;
 import com.hont.hont_backend.diet.dto.DietLogResponse;
 import com.hont.hont_backend.diet.dto.FoodInfoDto;
@@ -36,7 +37,7 @@ public class DietController {
 
     // 특정 날짜 식단 조회
     @GetMapping("/logs/{date}")
-    public ApiResponse<DietLogResponse> getDietLog(
+    public ApiResponse<List<DietLogItemDto>> getDietLog(
             @AuthenticationPrincipal Long userId,
             @PathVariable LocalDate date) {
         return ApiResponse.ok(dietService.getDietLog(userId, date));

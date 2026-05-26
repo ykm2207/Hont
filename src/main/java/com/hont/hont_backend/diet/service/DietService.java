@@ -2,6 +2,7 @@ package com.hont.hont_backend.diet.service;
 
 import com.hont.hont_backend.auth.entity.User;
 import com.hont.hont_backend.auth.repository.UserRepository;
+import com.hont.hont_backend.diet.dto.DietLogItemDto;
 import com.hont.hont_backend.diet.dto.DietLogRequest;
 import com.hont.hont_backend.diet.dto.DietLogResponse;
 import com.hont.hont_backend.diet.dto.FoodInfoDto;
@@ -49,7 +50,7 @@ public class DietService {
                 .mealType(request.getMealType())
                 .foodCode(request.getFoodCode())
                 .foodName(request.getFoodName())
-                .servingSize(request.getServingSize())
+                .servingSize(parseServingSize(request.getServingSize()))
                 .calories(request.getCalories())
                 .carbohydrate(request.getCarbohydrate())
                 .protein(request.getProtein())
@@ -60,11 +61,19 @@ public class DietService {
         return new DietLogResponse(dietLog);
     }
 
-    // 특정 날짜 식단 조회
-    public DietLogResponse getDietLog(Long userId, LocalDate date) {
+    // 특정 날짜 식단 조회 (Android: flat 아이템 리스트 반환)
+    public List<DietLogItemDto> getDietLog(Long userId, LocalDate date) {
         return dietLogRepository.findByUserIdAndDietDate(userId, date)
-                .map(DietLogResponse::new)
-                .orElse(null);
+                .map(log -> log.getItems().stream()
+                        .map(DietLogItemDto::new)
+                        .toList())
+                .orElse(List.of());
+    }
+
+    // "150g" → 150.0 파싱
+    private double parseServingSize(String servingSize) {
+        if (servingSize == null || servingSize.isBlank()) return 0;
+        return Double.parseDouble(servingSize.replaceAll("[^0-9.]", ""));
     }
 
     // 월별 식단 조회

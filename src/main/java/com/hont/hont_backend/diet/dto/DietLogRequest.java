@@ -21,7 +21,7 @@ public class DietLogRequest {
     @NotBlank(message = "음식 이름을 입력해주세요")
     private String foodName;
 
-    private double servingSize;
+    private String servingSize;
     private double calories;
     private double carbohydrate;
     private double protein;
