@@ -1,9 +1,8 @@
-# 1. 빌드 스테이지
-FROM eclipse-temurin:21-jdk-jammy AS build
+# 1. 빌드 스테이지 (Gradle 사전 설치 이미지 사용 - wrapper 다운로드 불필요)
+FROM gradle:9.4-jdk21 AS build
 WORKDIR /app
 COPY . .
-RUN chmod +x ./gradlew
-RUN ./gradlew clean bootJar -x test
+RUN gradle clean bootJar -x test --no-daemon
 
 # 2. 실행 스테이지
 FROM eclipse-temurin:21-jre-jammy
